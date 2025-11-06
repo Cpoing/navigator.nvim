@@ -1,1 +1,1 @@
-print(plugin/navigator.lua is executed)
+print("plugin/navigator.lua is executed")
