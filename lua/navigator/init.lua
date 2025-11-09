@@ -1,14 +1,12 @@
 local M = {}
 
+local window = require "navigator.window"
+
 function M.setup(opts)
 	opts = opts or {}
 	
 	vim.keymap.set("n", "<leader>t", function()
-		if opts.name then
-			print("hello, " .. opts.name)
-		else
-			print("hello")
-		end
+		window.open_floating_window()
 	end)
 end
 
