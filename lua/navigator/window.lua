@@ -1,6 +1,6 @@
 local M = {}
 
-function M.open_floating_window()
+function M.open_floating_window(files)
     local buf = vim.api.nvim_create_buf(false, true)
     local width = math.floor(vim.o.columns * 1)
     local height = math.floor(vim.o.lines * 1)
@@ -18,8 +18,6 @@ function M.open_floating_window()
     }
 
     local win = vim.api.nvim_open_win(buf, true, opts)
-
-		local files = { "file1.txt", "folder1/", "file2.txt", "folder2/"}
 
     vim.api.nvim_buf_set_lines(buf, 0, -1, false, files)
 
