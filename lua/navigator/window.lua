@@ -19,12 +19,11 @@ function M.open_floating_window()
 
     local win = vim.api.nvim_open_win(buf, true, opts)
 
-    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
-        "Press q to close.",
-    })
+		local files = { "file1.txt", "folder1/", "file2.txt", "folder2/"}
 
-    -- Better keymap for closing
-    vim.keymap.set("n", "q", function()
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, files)
+
+    vim.keymap.set("n", "<Esc>", function()
         if vim.api.nvim_win_is_valid(win) then
             vim.api.nvim_win_close(win, true)
         end
