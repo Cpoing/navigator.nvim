@@ -3,8 +3,9 @@ local M = {}
 function M.get_files(dir)
 	local uv = vim.uv
 	local files = {}
-	
+
 	local handle = uv.fs_scandir(dir)
+
 	if handle then
 		while true do
 			local name, type = uv.fs_scandir_next(handle)
