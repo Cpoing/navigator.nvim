@@ -1,3 +1,4 @@
+local cursor_line = 1
 local M = {}
 local file_utils = require("navigator.files")
 
@@ -133,6 +134,7 @@ function M.open_floating_window(files)
   end
 
   reexpand_saved_dirs()
+	vim.api.nvim_win_set_cursor(0, { cursor_line + 1, 0 })
 
   vim.keymap.set("n", "<Esc>", function()
     if vim.api.nvim_win_is_valid(win) then
@@ -142,7 +144,7 @@ function M.open_floating_window(files)
 
   vim.keymap.set("n", "<CR>", function()
     local cursor_pos = vim.api.nvim_win_get_cursor(0)
-    local cursor_line = cursor_pos[1] - 1
+    cursor_line = cursor_pos[1] - 1
     local lp_index = cursor_line + 1
     local path = line_paths[lp_index]
     if not path then return end
