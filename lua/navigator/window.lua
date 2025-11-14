@@ -76,8 +76,8 @@ function M.open_floating_window(files)
       new_line_paths[#new_line_paths + 1] = { path, parent_depth + 1 }
     end
 
-    for i = lp_insert, #line_paths do
-      new_line_paths[#new_line_paths + 1] = line_paths[i]
+    for i = cursor_line + 2, #line_paths do
+      new_line_paths[#new_line_paths + 1] = { line_paths[i][1], line_paths[i][2] }
     end
 
     line_paths = new_line_paths
@@ -142,6 +142,7 @@ function M.open_floating_window(files)
 
   reexpand_saved_dirs()
   vim.api.nvim_win_set_cursor(win, { cursor_line + 1, 0 })
+	vim.o.cursorline = true
 	
   vim.keymap.set("n", "<Esc>", function()
     if vim.api.nvim_win_is_valid(win) then
