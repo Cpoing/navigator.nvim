@@ -1,6 +1,8 @@
 local M = {}
 local file_utils = require("navigator.files")
 
+local expanded_dirs = {}
+
 local function join_path(a, b)
   if a:sub(-1) == "/" then
     a = a:sub(1, -2)
@@ -11,10 +13,14 @@ local function join_path(a, b)
   return a .. "/" .. b
 end
 
+local function highlight_dir(buf, line)
+  pcall(vim.api.nvim_buf_add_highlight, buf, 0, "Directory", line, 0, -1)
+end
+
 function M.open_floating_window(files)
   local buf = vim.api.nvim_create_buf(false, true)
   local width = math.floor(vim.o.columns * 1)
-  local height = math.floor(vim.o.lines * 1)
+  local height = math.floor(vim.o.lines * 0.9)
   local row = math.floor((vim.o.lines - height) / 2)
   local col = math.floor((vim.o.columns - width) / 2)
 
@@ -33,12 +39,11 @@ function M.open_floating_window(files)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, files)
 
   local line_paths = {}
-  local expanded_dirs = {}
   local cwd = vim.loop.cwd()
 
   for i, name in ipairs(files) do
     if name:sub(-1) == "/" then
-      vim.api.nvim_buf_add_highlight(buf, 0, "Directory", i - 1, 0, -1)
+      highlight_dir(buf, i - 1)
     end
     line_paths[i] = join_path(cwd, name)
   end
@@ -46,6 +51,7 @@ function M.open_floating_window(files)
   local function insert_files_below(cursor_line, files_to_insert, parent_path)
     local start_buf = cursor_line + 1
     local lp_insert = start_buf + 1
+
     vim.api.nvim_buf_set_lines(buf, start_buf, start_buf, false, files_to_insert)
 
     local new_line_paths = {}
@@ -59,7 +65,7 @@ function M.open_floating_window(files)
       new_line_paths[#new_line_paths + 1] = path
       if name:sub(-1) == "/" then
         local buf_line = (#new_line_paths) - 1
-        vim.api.nvim_buf_add_highlight(buf, 0, "Directory", buf_line, 0, -1)
+        highlight_dir(buf, buf_line)
       end
     end
 
@@ -73,7 +79,7 @@ function M.open_floating_window(files)
   local function collapse_dir(cursor_line, dir_path)
     local start_lp = cursor_line + 2
     if start_lp > #line_paths then
-      expanded_dirs[cursor_line + 1] = nil
+      expanded_dirs[dir_path] = nil
       return
     end
 
@@ -88,7 +94,7 @@ function M.open_floating_window(files)
     end
 
     if count == 0 then
-      expanded_dirs[cursor_line + 1] = nil
+      expanded_dirs[dir_path] = nil
       return
     end
 
@@ -105,8 +111,28 @@ function M.open_floating_window(files)
     end
     line_paths = new_line_paths
 
-    expanded_dirs[cursor_line + 1] = nil
+    for k in pairs(expanded_dirs) do
+      if k:sub(1, #dir_path) == dir_path then
+        expanded_dirs[k] = nil
+      end
+    end
   end
+
+  local function reexpand_saved_dirs()
+    local i = 1
+    while i <= #line_paths do
+      local p = line_paths[i]
+      if p and expanded_dirs[p] and vim.fn.isdirectory(p) ~= 0 then
+        local new_files = file_utils.get_files(p) or {}
+        if #new_files > 0 then
+          insert_files_below(i - 1, new_files, p)
+        end
+      end
+      i = i + 1
+    end
+  end
+
+  reexpand_saved_dirs()
 
   vim.keymap.set("n", "<Esc>", function()
     if vim.api.nvim_win_is_valid(win) then
@@ -122,14 +148,14 @@ function M.open_floating_window(files)
     if not path then return end
 
     if vim.fn.isdirectory(path) ~= 0 then
-      if expanded_dirs[lp_index] then
+      if expanded_dirs[path] then
         collapse_dir(cursor_line, path)
-        expanded_dirs[lp_index] = nil
+        expanded_dirs[path] = nil
       else
         local new_files = file_utils.get_files(path) or {}
         if #new_files > 0 then
           insert_files_below(cursor_line, new_files, path)
-          expanded_dirs[lp_index] = true
+          expanded_dirs[path] = true
         end
       end
     else
