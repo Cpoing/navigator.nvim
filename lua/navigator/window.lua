@@ -36,23 +36,46 @@ local function apply_indents_to_buffer(buf, line_paths)
 end
 
 function M.open_floating_window(files)
-  local buf = vim.api.nvim_create_buf(false, true)
-  local width = math.floor(vim.o.columns * 1)
-  local height = math.floor(vim.o.lines * 0.9)
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
+  local screen_w = vim.o.columns
+  local screen_h = vim.o.lines
 
-  local opts = {
+  local total_width = math.floor(screen_w * 0.9)
+  local total_height = math.floor(screen_h * 0.9)
+  local row = math.floor((screen_h - total_height) / 2)
+  local col = math.floor((screen_w - total_width) / 2)
+
+  local left_width = math.floor(total_width * 0.3)
+  local right_width = total_width - left_width
+
+  local tree_buf = vim.api.nvim_create_buf(false, true)
+  local tree_opts = {
     relative = "editor",
-    width = width,
-    height = height,
+    width = left_width,
+    height = total_height,
     row = row,
     col = col,
     style = "minimal",
     border = "rounded",
   }
+  local tree_win = vim.api.nvim_open_win(tree_buf, true, tree_opts)
 
-  local win = vim.api.nvim_open_win(buf, true, opts)
+  local preview_buf = vim.api.nvim_create_buf(false, true)
+
+  local preview_opts = {
+    relative = "editor",
+    width = right_width,
+    height = total_height,
+    row = row,
+    col = col + left_width + 2,
+    style = "minimal",
+    border = "rounded",
+  }
+
+  local preview_win = vim.api.nvim_open_win(preview_buf, false, preview_opts)
+
+	-- previews first file?
+	-- then previews whatever our cursor is on
+  vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, {})
 
   local line_paths = {}
   local cwd = vim.loop.cwd()
@@ -61,7 +84,10 @@ function M.open_floating_window(files)
     line_paths[i] = { join_path(cwd, name), 0 }
   end
 
-  apply_indents_to_buffer(buf, line_paths)
+  apply_indents_to_buffer(tree_buf, line_paths)
+
+  -- vim.api.nvim_win_set_cursor(tree_win, { cursor_line + 1, 0 })
+  vim.o.cursorline = true
 
   local function insert_files_below(cursor_line, files_to_insert, parent_path)
     local parent_depth = line_paths[cursor_line + 1][2]
@@ -81,12 +107,11 @@ function M.open_floating_window(files)
     end
 
     line_paths = new_line_paths
-    apply_indents_to_buffer(buf, line_paths)
+    apply_indents_to_buffer(tree_buf, line_paths)
   end
 
   local function collapse_dir(cursor_line, dir_path)
     local start_index = cursor_line + 2
-
     if start_index > #line_paths then
       expanded_dirs[dir_path] = nil
       return
@@ -123,7 +148,7 @@ function M.open_floating_window(files)
       end
     end
 
-    apply_indents_to_buffer(buf, line_paths)
+    apply_indents_to_buffer(tree_buf, line_paths)
   end
 
   local function reexpand_saved_dirs()
@@ -141,18 +166,16 @@ function M.open_floating_window(files)
   end
 
   reexpand_saved_dirs()
-  vim.api.nvim_win_set_cursor(win, { cursor_line + 1, 0 })
-	vim.o.cursorline = true
-	
+
   vim.keymap.set("n", "<Esc>", function()
-    if vim.api.nvim_win_is_valid(win) then
-      vim.api.nvim_win_close(win, true)
-    end
-  end, { buffer = buf, silent = true })
+    if vim.api.nvim_win_is_valid(tree_win) then vim.api.nvim_win_close(tree_win, true) end
+    if vim.api.nvim_win_is_valid(preview_win) then vim.api.nvim_win_close(preview_win, true) end
+  end, { buffer = tree_buf, silent = true })
 
   vim.keymap.set("n", "<CR>", function()
-    local cursor_pos = vim.api.nvim_win_get_cursor(0)
+    local cursor_pos = vim.api.nvim_win_get_cursor(tree_win)
     cursor_line = cursor_pos[1] - 1
+
     local lp = line_paths[cursor_line + 1]
     if not lp then return end
 
@@ -170,14 +193,16 @@ function M.open_floating_window(files)
         end
       end
     else
-      if vim.api.nvim_win_is_valid(win) then
-        vim.api.nvim_win_close(win, true)
-      end
+			if vim.api.nvim_win_is_valid(tree_win) then
+				vim.api.nvim_win_close(tree_win, true)
+				vim.api.nvim_win_close(preview_win, true)
+			end
       vim.cmd("edit " .. path)
     end
-  end, { buffer = buf, silent = true })
+  end, { buffer = tree_buf, silent = true })
 
-  return buf, win
+  return tree_buf, tree_win, preview_buf, preview_win
 end
 
 return M
+
