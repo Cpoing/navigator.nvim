@@ -32,28 +32,21 @@ function M.open_tree(files)
     end
   end, { buffer = tree_buf })
 
-	local previous_win = vim.api.nvim_get_current_win()
+  vim.keymap.set("n", "<CR>", function()
+    local lnum = vim.api.nvim_win_get_cursor(tree_win)[1]
+    local node = tree.get_node_at_line(lnum)
+    if not node then return end
 
-	vim.keymap.set("n", "<CR>", function()
-		local lnum = vim.api.nvim_win_get_cursor(tree_win)[1]
-		local node = tree.get_node_at_line(lnum)
-		if not node then return end
-
-		if node.is_dir then
-			tree.toggle(node)
-			return
-		end
+    if node.is_dir then
+      tree.toggle(node)
+      return
+    end
 
 		if vim.api.nvim_win_is_valid(tree_win) then
 			vim.api.nvim_win_close(tree_win, true)
 		end
-
-		if vim.api.nvim_win_is_valid(previous_win) then
-			vim.api.nvim_set_current_win(previous_win)
-		end
-
-		vim.cmd("edit " .. vim.fn.fnameescape(node.path))
-	end, { buffer = tree_buf })
+    vim.cmd("edit " .. vim.fn.fnameescape(node.path))
+  end, { buffer = tree_buf })
 
 end
 

@@ -1,10 +1,8 @@
 local M = {}
-
 local files_api = require("navigator.files")
 
 local tree_buf = nil
 local cwd = nil
-
 local nodes = {}
 local expanded = {}
 
@@ -24,7 +22,7 @@ local function render()
 
   for i, node in ipairs(nodes) do
     local indent = string.rep("  ", node.depth)
-    local name = node.path:match("[^/]+$")
+    local name = node.name
     lines[i] = indent .. name
   end
 
@@ -38,16 +36,19 @@ local function render()
 end
 
 local function rebuild_node_list(base, depth)
-  local items = files_api.get_files(base)
+  local items = files_api.get_files(base) or {}
   local ret = {}
 
   for _, name in ipairs(items) do
-    local p = join_path(base, name)
-    table.insert(ret, {
-      path = p,
-      depth = depth,
-      is_dir = is_dir(p),
-    })
+    if name and name ~= "" and name:sub(1,1) ~= "." then
+      local p = join_path(base, name)
+      table.insert(ret, {
+        path = p,
+        name = name,
+        depth = depth,
+        is_dir = is_dir(p),
+      })
+    end
   end
 
   return ret
@@ -64,13 +65,12 @@ local function expand(idx)
   expanded[node.path] = true
   local children = rebuild_node_list(node.path, node.depth + 1)
 
-  local new = {}
+  local new_nodes = {}
+  for i = 1, idx do table.insert(new_nodes, nodes[i]) end
+  for _, c in ipairs(children) do table.insert(new_nodes, c) end
+  for i = idx + 1, #nodes do table.insert(new_nodes, nodes[i]) end
 
-  for i = 1, idx do table.insert(new, nodes[i]) end
-  for _, c in ipairs(children) do table.insert(new, c) end
-  for i = idx + 1, #nodes do table.insert(new, nodes[i]) end
-
-  nodes = new
+  nodes = new_nodes
   render()
 end
 
@@ -80,9 +80,8 @@ local function collapse(idx)
 
   expanded[node.path] = nil
 
-  local new = {}
-
-  for i = 1, idx do table.insert(new, nodes[i]) end
+  local new_nodes = {}
+  for i = 1, idx do table.insert(new_nodes, nodes[i]) end
 
   local prefix = node.path
   local j = idx + 1
@@ -90,9 +89,9 @@ local function collapse(idx)
     j = j + 1
   end
 
-  for i = j, #nodes do table.insert(new, nodes[i]) end
+  for i = j, #nodes do table.insert(new_nodes, nodes[i]) end
 
-  nodes = new
+  nodes = new_nodes
   render()
 end
 
@@ -108,22 +107,41 @@ function M.toggle(node)
   end
 end
 
+local function build_nodes(base, depth)
+  local items = files_api.get_files(base) or {}
+  local result = {}
+
+  for _, name in ipairs(items) do
+    if name and name ~= "" and name:sub(1,1) ~= "." then
+      local path = join_path(base, name)
+      local node = {
+        path = path,
+        name = name,
+        depth = depth,
+        is_dir = is_dir(path),
+      }
+      table.insert(result, node)
+
+      if node.is_dir and expanded[path] then
+        local children = build_nodes(path, depth + 1)
+        for _, c in ipairs(children) do
+          table.insert(result, c)
+        end
+      end
+    end
+  end
+
+  return result
+end
+
 function M.setup(buf, file_list)
   tree_buf = buf
   cwd = vim.loop.cwd()
 
-  nodes = {}
-
-  for _, name in ipairs(file_list) do
-    local p = join_path(cwd, name)
-    table.insert(nodes, {
-      path = p,
-      depth = 0,
-      is_dir = is_dir(p),
-    })
-  end
+  nodes = build_nodes(cwd, 0)
 
   render()
 end
 
 return M
+
