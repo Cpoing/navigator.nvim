@@ -1,14 +1,14 @@
 local M = {}
 
-local window = require "navigator.window"
-local files = require "navigator.files"
 
 function M.setup(opts)
 	opts = opts or {}
+
+	local window = require "navigator.window"
+	local files = require "navigator.files"
 	
 	vim.keymap.set("n", "<leader>t", function()
-		local files_list = files.get_files(vim.loop.cwd())
-		window.open_floating_window(files_list)
+		window.open_tree(files.get_files(vim.loop.cwd()))
 	end)
 end
 
