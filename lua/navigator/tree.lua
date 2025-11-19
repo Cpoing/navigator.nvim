@@ -58,6 +58,11 @@ function M.get_node_at_line(line)
   return nodes[line]
 end
 
+function M.get_node_at_cursor(win)
+    local lnum = vim.api.nvim_win_get_cursor(win)[1]
+    return nodes[lnum]
+end
+
 local function expand(idx)
   local node = nodes[idx]
   if not node or not node.is_dir then return end

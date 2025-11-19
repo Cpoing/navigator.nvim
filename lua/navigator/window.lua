@@ -38,7 +38,31 @@ function M.open_tree(files)
 		border = "rounded",
 	})
 
-	vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, {})
+	local last_previewed = nil
+
+	vim.api.nvim_create_autocmd("CursorMoved", {
+			buffer = tree_buf,
+			callback = function()
+					local node = tree.get_node_at_cursor(tree_win)
+					if not node or node.is_dir then
+						vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, {})
+						last_previewed = nil
+						return
+					end
+
+					if last_previewed == node.path then return end
+					last_previewed = node.path
+
+					local ok, lines = pcall(vim.fn.readfile, node.path)
+					if not ok then
+							lines = { "Failed to load file" }
+					end
+
+					vim.api.nvim_buf_set_lines(preview_buf, 0, -1, false, lines)
+					local ft = vim.filetype.match({ filename = node.path })
+					vim.api.nvim_buf_set_option(preview_buf, "filetype", ft or "")
+			end,
+	})
 
 	vim.o.cursorline = true
 
@@ -46,6 +70,9 @@ function M.open_tree(files)
     if vim.api.nvim_win_is_valid(tree_win) then
       vim.api.nvim_win_close(tree_win, true)
     end
+		if vim.api.nvim_win_is_valid(preview_win) then
+			vim.api.nvim_win_close(preview_win, true)
+		end
   end, { buffer = tree_buf })
 
   vim.keymap.set("n", "<CR>", function()
